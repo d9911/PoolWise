@@ -1,13 +1,9 @@
-// PoolWise Prisma schema — PostgreSQL.
-// Money is ALWAYS stored as integer minor units (amountMinor) to avoid float drift.
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -18,8 +14,6 @@ model User {
   transactions Transaction[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
-
-  @@index([role])
 }
 
 model Market {
@@ -36,8 +30,6 @@ model Market {
   resolvedAt        DateTime?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
-
-  @@index([status])
 }
 
 model Bet {
@@ -50,10 +42,6 @@ model Bet {
   user           User     @relation(fields: [userId], references: [id])
   market         Market   @relation(fields: [marketId], references: [id])
   createdAt      DateTime @default(now())
-
-  @@index([userId])
-  @@index([marketId])
-  @@index([side])
 }
 
 model Transaction {
@@ -62,15 +50,11 @@ model Transaction {
   marketId       String?
   betId          String?
   type           TransactionType
-  amountMinor    Int
-  idempotencyKey String          @unique
+  amountMinor     Int
+  idempotencyKey  String          @unique
   user           User?           @relation(fields: [userId], references: [id])
-  market         Market?         @relation(fields: [marketId], references: [id])
-  createdAt      DateTime        @default(now())
-
-  @@index([userId])
-  @@index([marketId])
-  @@index([type])
+  market          Market?         @relation(fields: [marketId], references: [id])
+  createdAt      DateTime         @default(now())
 }
 
 enum UserRole {

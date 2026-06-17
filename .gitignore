@@ -3,45 +3,44 @@ CLAUDE.md
 coverage/
 DESIGN.md
 PLAN.md
-node_modules
-.pnp
-.pnp.js
+*/package-lock.json
+node_modules/
 
-# next
+# Next.js
 .next/
-*/.next
 out/
-build
-dist
 
-# env
+# Production builds
+build/
+dist/
+
+# Environment variables
 .env
-*/.env
-!.env.example
-.env*.local
-frontend/.env
+.env.local
+.env.*.local
 
-# prisma
-frontend/prisma/migrations/dev.db*
-*.db-journal
+# Prisma
+prisma/migrations/*/migration_lock.toml
 
-# testing
-coverage
+# Logs
+*.log
 
-# misc
+# IDE
+.vscode/
+.idea/
+
+# OS
 .DS_Store
-*.pem
-.idea
-.vscode
+Thumbs.db
 
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Cache / package managers
+.cache/
+.npm/
+.config/
+.pnpm-store/
+yarn.lock
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# vercel
-.vercel
+# Runtime data
+*.pid
+*.seed
+*.pid.lock

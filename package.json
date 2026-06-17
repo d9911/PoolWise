@@ -1,5 +1,5 @@
 {
-  "name": "invoice-guard",
+  "name": "PoolWise",
   "description": "",
   "private": true,
   "version": "0.0.1",
@@ -9,7 +9,7 @@
   "devDependencies": {},
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/d9911/InvoiceGuard.git"
+    "url": "git+https://github.com/d9911/PoolWise.git"
   },
   "author": {
     "name": "Denis Gutsuliak",
@@ -29,7 +29,7 @@
     "npm": ">=8.0.0"
   },
   "bugs": {
-    "url": "https://github.com/d9911/InvoiceGuard/issues"
+    "url": "https://github.com/d9911/PoolWise/issues"
   },
-  "homepage": "https://github.com/d9911/InvoiceGuard#readme"
+  "homepage": "https://github.com/d9911/PoolWise#readme"
 }

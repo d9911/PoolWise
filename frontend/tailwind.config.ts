@@ -1,47 +1,50 @@
-import type { Config } from 'tailwindcss';
+import type { Config } from "tailwindcss";
 
 const config: Config = {
   content: [
-    './src/app/**/*.{ts,tsx}',
-    './src/pages-layer/**/*.{ts,tsx}',
-    './src/widgets/**/*.{ts,tsx}',
-    './src/features/**/*.{ts,tsx}',
-    './src/entities/**/*.{ts,tsx}',
-    './src/shared/**/*.{ts,tsx}',
-    './src/processes/**/*.{ts,tsx}',
+    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/**/*.{js,ts,jsx,tsx,mdx}"
   ],
   theme: {
     extend: {
       colors: {
-        ink: {
-          DEFAULT: '#0a0a0a',
-          50: '#161616',
-          100: '#1c1c1c',
-          200: '#262626',
-          300: '#3a3a3a',
-        },
-        accent: {
-          DEFAULT: '#ffffff',
-        },
-        yes: {
-          DEFAULT: '#3fb950',
-          soft: 'rgba(63,185,80,0.12)',
-        },
-        no: {
-          DEFAULT: '#f85149',
-          soft: 'rgba(248,81,73,0.12)',
-        },
+        canvas: "#0a0a0a",
+        "canvas-soft": "#1a1c20",
+        "canvas-card": "#191919",
+        "canvas-mid": "#363a3f",
+        hairline: "#212327",
+        ink: "#ffffff",
+        "ink-hover": "#fafaf7",
+        body: "#dadbdf",
+        "body-mid": "#7d8187",
+        "accent-sunset": "#ff7a17",
+        "accent-sunset-soft": "#ffc285",
+        "accent-dusk": "#7c3aed",
+        "accent-twilight": "#c4b5fd",
+        "accent-breeze": "#a0c3ec",
+        "accent-midnight": "#0d1726"
       },
       fontFamily: {
-        sans: ['ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
-        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        display: ["var(--font-inter)", "Inter", "system-ui", "sans-serif"],
+        mono: ["var(--font-geist-mono)", "Geist Mono", "monospace"]
+      },
+      letterSpacing: {
+        "display-xl": "-2.4px",
+        "display-lg": "-1.8px",
+        "display-md": "-1.2px",
+        "display-sm": "-0.6px",
+        "mono": "1.4px",
+        "mono-sm": "1.2px"
       },
       borderRadius: {
-        pill: '9999px',
-      },
-    },
+        sm: "8px",
+        pill: "9999px"
+      }
+    }
   },
-  plugins: [],
+  plugins: []
 };
 
 export default config;

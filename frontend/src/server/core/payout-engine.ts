@@ -1,256 +1,96 @@
-/**
- * Payout engine — pure functions for parimutuel settlement.
- *
- * This module contains the financially critical math of the whole product. It is
- * intentionally pure (no DB, no IO) so it can be exhaustively unit tested and so
- * the exact acceptance numbers from the brief are provable.
- *
- * Money conventions (see money.ts):
- *  - all amounts are integer minor units
- *  - bps = basis points (800 bps == 8%)
- *  - probBps = probability in basis points (6500 bps == 0.65)
- *
- * Two settlement modes:
- *  1. Parimutuel (both sides have liquidity) — winners share the net pool.
- *  2. Single-side guarantee (one side empty) — winner paid at a guaranteed
- *     multiplier derived from the market's implied probability, with the HOUSE
- *     covering any shortfall (never cancelling the bet).
- */
+import { roundToMinor, type Side } from "./money";
 
-import { Outcome } from '@/shared/types';
-import { mulRatio, takeBps } from './money';
-
-export interface PoolSnapshot {
-  poolYesMinor: number;
-  poolNoMinor: number;
-}
-
-export interface SettlementInput {
-  outcome: Outcome;
-  rakeBps: number;
-  /** Implied probability of YES in bps (used only for the single-side case). */
-  initialYesProbBps: number;
-  pool: PoolSnapshot;
-}
-
-export interface WinnerInput {
-  betId: string;
-  userId: string;
-  amountMinor: number;
-}
-
-export interface WinnerSettlement {
-  betId: string;
-  userId: string;
-  /** Gross payout to the winning user (includes their stake). */
-  payoutMinor: number;
-}
-
-export interface SettlementResult {
-  outcome: Outcome;
-  /** true when the losing side had zero liquidity (single-side guarantee). */
-  singleSide: boolean;
-  /** Side that had liquidity. For single-side this is the winning side. */
-  liquidSide: Outcome | null;
-  poolYesMinor: number;
-  poolNoMinor: number;
+export interface PayoutResult {
   totalPoolMinor: number;
-  /** Rake retained by the house. */
   rakeMinor: number;
-  /** Pool available to pay winners (totalPool - rake). */
   payoutPoolMinor: number;
-  /** Sum actually paid to winners (before any house cover). */
-  winnersPaidMinor: number;
-  /** Shortfall the house had to cover (single-side only). */
+  winnerPoolMinor: number;
+  loserPoolMinor: number;
+  guaranteedMultiplier?: number;
   houseCoverMinor: number;
-  winners: WinnerSettlement[];
+  payouts: { userId: string; betId: string; amountMinor: number }[];
+  rakeAmountMinor: number;
 }
 
-/**
- * Decide which side carries liquidity given an outcome.
- * Returns null when BOTH sides have liquidity (pure parimutuel).
- */
-export function detectSingleSide(pool: PoolSnapshot): Outcome | null {
-  const yesEmpty = pool.poolYesMinor <= 0;
-  const noEmpty = pool.poolNoMinor <= 0;
-  if (yesEmpty && !noEmpty) return 'NO'; // only NO side funded
-  if (!yesEmpty && noEmpty) return 'YES'; // only YES side funded
-  return null; // both funded, or (edge) both empty
-}
-
-/**
- * Guaranteed multiplier used when only one side has liquidity.
- *
- *   guaranteedMultiplier = (1 / impliedProbability) * (1 - rake)
- *
- * Implemented as exact integer math:
- *   multiplier(numer/denom) = (10_000 - rakeBps) / (probBps)
- *   payout = amount * (10_000 - rakeBps) / probBps
- *
- * For the acceptance case (implied=0.65, rake=8%): multiplier = 9200/6500 = 1.4153846...
- * ₦1,000.00 -> 100000 minor -> 100000 * 9200 / 6500 = 141538 minor -> ₦1,415.38.
- */
-export function guaranteedMultiplierBps(rakeBps: number, probBps: number): number {
-  // Returns the multiplier scaled by 10_000 (i.e. 14153 bps == 1.4153x).
-  return mulRatio(10_000, 10_000 - rakeBps, probBps, 'floor');
-}
-
-/**
- * Settle a market. Pure function — pass in the pool snapshot + winning bets,
- * get back every ledger amount needed.
- *
- * Rounding policy (documented, deterministic):
- *  - each winner's payout is floored to an integer minor value
- *    (favors the house; dust is NOT lost — it is folded into rake below)
- *  - for the single-side case the guaranteed payout is floored too; any dust is
- *    retained by the house (recorded as RAKE_COLLECTED implicitly via the
- *    leftover of payoutPool/houseCover accounting).
- */
-export function settleMarket(input: SettlementInput, winners: WinnerInput[]): SettlementResult {
-  const { outcome, rakeBps, initialYesProbBps, pool } = input;
-
-  const totalPoolMinor = pool.poolYesMinor + pool.poolNoMinor;
-  const rakeMinor = takeBps(totalPoolMinor, rakeBps, 'floor');
+export function calculatePayouts(
+  outcome: Side,
+  poolYesMinor: number,
+  poolNoMinor: number,
+  rakeBps: number,
+  initialYesProbBps: number,
+  bets: { id: string; userId: string; side: Side; amountMinor: number }[]
+): PayoutResult {
+  const totalPoolMinor = poolYesMinor + poolNoMinor;
+  const rakeMinor = roundToMinor((totalPoolMinor * rakeBps) / 10000);
   const payoutPoolMinor = totalPoolMinor - rakeMinor;
 
-  const singleSideLiquid = detectSingleSide(pool);
+  const winnerPoolMinor = outcome === "YES" ? poolYesMinor : poolNoMinor;
+  const loserPoolMinor = outcome === "YES" ? poolNoMinor : poolYesMinor;
 
-  if (singleSideLiquid === null && winners.length === 0) {
-    // No winners and both sides empty/zero — nothing to pay. Still return a
-    // well-formed result (e.g. a market resolved before any bets).
-    return {
-      outcome,
-      singleSide: false,
-      liquidSide: null,
-      poolYesMinor: pool.poolYesMinor,
-      poolNoMinor: pool.poolNoMinor,
-      totalPoolMinor,
-      rakeMinor,
-      payoutPoolMinor,
-      winnersPaidMinor: 0,
-      houseCoverMinor: 0,
-      winners: [],
-    };
-  }
+  const winningBets = bets.filter((b) => b.side === outcome);
 
-  // ---- Single-side guarantee path -----------------------------------------
-  if (singleSideLiquid !== null) {
-    // The liquid side IS the winning side for this path to apply. If the liquid
-    // side lost, winners is empty (they simply lose their stake — no payout).
-    const liquidWon = singleSideLiquid === outcome;
+  let houseCoverMinor = 0;
+  let payouts: { userId: string; betId: string; amountMinor: number }[] = [];
+  let guaranteedMultiplier: number | undefined;
 
-    if (!liquidWon) {
-      // Liquid side bet on the losing outcome: stake forfeited, no payout.
-      return {
-        outcome,
-        singleSide: true,
-        liquidSide: singleSideLiquid,
-        poolYesMinor: pool.poolYesMinor,
-        poolNoMinor: pool.poolNoMinor,
-        totalPoolMinor,
-        rakeMinor,
-        payoutPoolMinor,
-        winnersPaidMinor: 0,
-        houseCoverMinor: 0,
-        winners: [],
-      };
+  if (winnerPoolMinor === 0) {
+    // No winners — payout pool becomes entire rake/house profit. No payouts.
+    payouts = [];
+  } else if (loserPoolMinor === 0) {
+    // Single-side case: guaranteed payout according to implied probability.
+    const impliedProb = outcome === "YES" ? initialYesProbBps / 10000 : 1 - initialYesProbBps / 10000;
+    guaranteedMultiplier = (1 / impliedProb) * (1 - rakeBps / 10000);
+
+    for (const bet of winningBets) {
+      const rawPayout = bet.amountMinor * guaranteedMultiplier;
+      const payout = roundToMinor(rawPayout);
+      payouts.push({ userId: bet.userId, betId: bet.id, amountMinor: payout });
     }
 
-    // Liquid side won -> pay every winning bet at the guaranteed multiplier.
-    // Implied prob corresponds to the winning (liquid) side.
-    const probBps =
-      singleSideLiquid === 'YES'
-        ? initialYesProbBps
-        : 10_000 - initialYesProbBps;
-
-    // Multiplier numerator/denominator in integer form: (10_000 - rakeBps)/probBps
-    const numer = 10_000 - rakeBps;
-    const denom = probBps;
-
-    const settled: WinnerSettlement[] = winners.map((w) => ({
-      betId: w.betId,
-      userId: w.userId,
-      payoutMinor: mulRatio(w.amountMinor, numer, denom, 'floor'),
-    }));
-
-    const winnersPaidMinor = settled.reduce((s, w) => s + w.payoutMinor, 0);
-
-    // The house must cover any payout exceeding the net pool available.
-    // payoutPoolMinor here is just the collected stake minus rake.
-    const shortfall = Math.max(0, winnersPaidMinor - payoutPoolMinor);
-
-    return {
-      outcome,
-      singleSide: true,
-      liquidSide: singleSideLiquid,
-      poolYesMinor: pool.poolYesMinor,
-      poolNoMinor: pool.poolNoMinor,
-      totalPoolMinor,
-      rakeMinor,
-      payoutPoolMinor,
-      winnersPaidMinor,
-      houseCoverMinor: shortfall,
-      winners: settled,
-    };
+    const totalPayoutMinor = payouts.reduce((sum, p) => sum + p.amountMinor, 0);
+    const availableAfterRake = totalPoolMinor - rakeMinor;
+    houseCoverMinor = Math.max(0, totalPayoutMinor - availableAfterRake);
+  } else {
+    // Normal parimutuel: distribute payout pool proportionally to winning stakes.
+    for (const bet of winningBets) {
+      const share = bet.amountMinor / winnerPoolMinor;
+      const payout = roundToMinor(payoutPoolMinor * share);
+      payouts.push({ userId: bet.userId, betId: bet.id, amountMinor: payout });
+    }
   }
-
-  // ---- Parimutuel path (both sides have liquidity) ------------------------
-  // Winners share payoutPoolMinor proportionally to their stake in the winning
-  // pool. Each payout is floored; any leftover dust folds into the rake.
-  const winnerPoolMinor = winners.reduce((s, w) => s + w.amountMinor, 0);
-
-  if (winnerPoolMinor <= 0) {
-    return {
-      outcome,
-      singleSide: false,
-      liquidSide: null,
-      poolYesMinor: pool.poolYesMinor,
-      poolNoMinor: pool.poolNoMinor,
-      totalPoolMinor,
-      rakeMinor,
-      payoutPoolMinor,
-      winnersPaidMinor: 0,
-      houseCoverMinor: 0,
-      winners: [],
-    };
-  }
-
-  const settled: WinnerSettlement[] = winners.map((w) => ({
-    betId: w.betId,
-    userId: w.userId,
-    payoutMinor: mulRatio(payoutPoolMinor, w.amountMinor, winnerPoolMinor, 'floor'),
-  }));
-
-  const winnersPaidMinor = settled.reduce((s, w) => s + w.payoutMinor, 0);
-  // Dust from proportional flooring is retained by the house (added to rake).
-  const dust = payoutPoolMinor - winnersPaidMinor;
 
   return {
-    outcome,
-    singleSide: false,
-    liquidSide: null,
-    poolYesMinor: pool.poolYesMinor,
-    poolNoMinor: pool.poolNoMinor,
     totalPoolMinor,
-    rakeMinor: rakeMinor + dust,
+    rakeMinor,
     payoutPoolMinor,
-    winnersPaidMinor,
-    houseCoverMinor: 0,
-    winners: settled,
+    winnerPoolMinor,
+    loserPoolMinor,
+    guaranteedMultiplier,
+    houseCoverMinor,
+    payouts,
+    rakeAmountMinor: rakeMinor
   };
 }
 
-/**
- * Implied probability of YES from current pools (for UI display).
- * Uses the standard parimutuel price: price_yes = total / yes, prob = 1/price.
- * With one empty side this falls back to the market's initial probability.
- */
-export function impliedYesProbBps(pool: PoolSnapshot, fallbackYesProbBps: number): number {
-  if (pool.poolYesMinor <= 0 || pool.poolNoMinor <= 0) {
-    return fallbackYesProbBps;
+export function calculateOdds(
+  poolYesMinor: number,
+  poolNoMinor: number,
+  rakeBps: number,
+  initialYesProbBps: number
+): { yesMultiplier: number; noMultiplier: number; impliedYesProb: number } {
+  const total = poolYesMinor + poolNoMinor;
+  if (total === 0) {
+    return {
+      yesMultiplier: (1 / (initialYesProbBps / 10000)) * (1 - rakeBps / 10000),
+      noMultiplier: (1 / (1 - initialYesProbBps / 10000)) * (1 - rakeBps / 10000),
+      impliedYesProb: initialYesProbBps / 10000
+    };
   }
-  const total = pool.poolYesMinor + pool.poolNoMinor;
-  return mulRatio(total, pool.poolYesMinor, total, 'floor') === pool.poolYesMinor
-    ? mulRatio(10_000, pool.poolYesMinor, total, 'floor')
-    : Math.round((pool.poolYesMinor / total) * 10_000);
+
+  const yesMultiplier =
+    poolYesMinor > 0 ? ((total * (1 - rakeBps / 10000)) / poolYesMinor) : 0;
+  const noMultiplier = poolNoMinor > 0 ? ((total * (1 - rakeBps / 10000)) / poolNoMinor) : 0;
+  const impliedYesProb = poolYesMinor / total;
+
+  return { yesMultiplier, noMultiplier, impliedYesProb };
 }

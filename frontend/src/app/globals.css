@@ -1,43 +1,69 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-canvas: #0a0a0a;
+  --color-canvas-soft: #1a1c20;
+  --color-canvas-card: #191919;
+  --color-canvas-mid: #363a3f;
+  --color-hairline: #212327;
+  --color-ink: #ffffff;
+  --color-ink-hover: #fafaf7;
+  --color-body: #dadbdf;
+  --color-body-mid: #7d8187;
+  --color-accent-sunset: #ff7a17;
+  --color-accent-sunset-soft: #ffc285;
+  --color-accent-dusk: #7c3aed;
+  --color-accent-twilight: #c4b5fd;
+  --color-accent-breeze: #a0c3ec;
+  --color-accent-midnight: #0d1726;
+
+  --font-display: var(--font-inter), Inter, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), JetBrains Mono, monospace;
+
+  --tracking-display-xl: -2.4px;
+  --tracking-display-lg: -1.8px;
+  --tracking-display-md: -1.2px;
+  --tracking-display-sm: -0.6px;
+  --tracking-mono: 1.4px;
+  --tracking-mono-sm: 1.2px;
+
+  --radius-sm: 8px;
+  --radius-pill: 9999px;
+}
 
 :root {
-  color-scheme: dark;
+  --background: #0a0a0a;
+  --foreground: #ffffff;
 }
 
-html,
 body {
-  background-color: #0a0a0a;
-  color: #ffffff;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+  min-height: 100vh;
+  font-feature-settings: "cv11", "ss01";
+  font-variation-settings: "opsz" 32;
 }
 
-* {
-  box-sizing: border-box;
-}
+@layer components {
+  .eyebrow-mono {
+    @apply font-mono text-xs uppercase tracking-mono-sm text-ink;
+  }
 
-/* Hide horizontal scrollbars on small viewports */
-body {
-  overflow-x: hidden;
-}
+  .headline-display-md {
+    @apply text-5xl font-normal leading-none tracking-display-md;
+  }
 
-input,
-button,
-select {
-  font-family: inherit;
-}
+  .headline-display-sm {
+    @apply text-3xl font-normal leading-tight tracking-display-sm;
+  }
 
-/* Slim, dark scrollbars */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #262626;
-  border-radius: 9999px;
+  .card-content {
+    @apply rounded-sm border border-hairline bg-canvas-card p-6;
+  }
+
+  .pill-outline {
+    @apply inline-flex items-center justify-center rounded-pill border border-white/25 bg-transparent px-4 py-2 text-sm font-normal text-ink transition hover:border-white/40 hover:bg-canvas-soft;
+  }
+
+  .pill-primary {
+    @apply inline-flex items-center justify-center rounded-pill border border-white bg-white px-4 py-2 text-sm font-normal text-canvas transition hover:bg-white/90;
+  }
 }
