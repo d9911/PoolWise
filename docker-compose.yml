@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: poolwise-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: poolwise
+      POSTGRES_PASSWORD: poolwise
+      POSTGRES_DB: poolwise
+    ports:
+      - "5432:5432"
+    volumes:
+      - poolwise_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U poolwise -d poolwise"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: poolwise-frontend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ./frontend/.env
+    ports:
+      - "5179:5179"
+    command: sh -c "npx prisma migrate deploy && npm run dev -- -p 5179"
+
+volumes:
+  poolwise_postgres_data:
