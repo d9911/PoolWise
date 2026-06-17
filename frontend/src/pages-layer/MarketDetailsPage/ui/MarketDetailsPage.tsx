@@ -1,18 +1,18 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { MobileShell } from "@/widgets/mobile-shell";
-import { BalanceCard } from "@/widgets/balance-card";
-import { MarketPool } from "@/widgets/market-pool";
-import { BetPanel } from "@/widgets/bet-panel";
-import { ResolvePanel } from "@/widgets/resolve-panel";
+import { MobileShell } from "@/widgets/MobileShell/ui/MobileShell";
+import { BalanceCard } from "@/widgets/BalanceCard/ui/BalanceCard";
+import { MarketPool } from "@/widgets/MarketPool/ui/MarketPool";
+import { BetPanel } from "@/widgets/BetPanel/ui/BetPanel";
+import { ResolvePanel } from "@/widgets/ResolvePanel/ui/ResolvePanel";
 import { useGetMarketQuery } from "@/entities/market/api";
 import { useGetBalanceQuery } from "@/entities/user/api";
 import { formatAmountMinor } from "@/entities/market/lib/format";
 
 const DEMO_USER_ID = "user_alice";
 
-export function MarketPage() {
+export function MarketDetailsPage() {
   const params = useParams<{ id: string }>();
   const marketId = params.id;
   const { data: marketData, isLoading: marketLoading } = useGetMarketQuery(marketId);

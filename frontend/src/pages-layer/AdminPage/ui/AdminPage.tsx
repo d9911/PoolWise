@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MobileShell } from "@/widgets/mobile-shell";
+import { MobileShell } from "@/widgets/MobileShell/ui/MobileShell";
 import { Card, CardTitle } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { useResolveMarketMutation } from "@/entities/market/api";

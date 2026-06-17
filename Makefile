@@ -25,6 +25,7 @@ install:
 s:
 	@cd frontend && ([ -f .env ] || cp .env.example .env)
 	@echo "$(GREEN)✅ .env files created (if they were missing)$(NC)"
+
 setup: s install db-create db-migrate seed
 	@echo "$(GREEN)✅ PoolWise is ready. Run 'make dev' to start.$(NC)"
 
@@ -84,3 +85,6 @@ clean-ports:
 	@echo "$(YELLOW)🧹 Очищаем порты...$(NC)"
 	-@lsof -ti :$(FRONTEND_PORT) | xargs kill -9 2>/dev/null || true
 	@echo "$(GREEN)✅ Порты свободны$(NC)"
+
+
+i: build lint test dev

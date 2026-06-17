@@ -10,24 +10,20 @@ interface MarketCardProps {
 
 export function MarketCard({ market }: MarketCardProps) {
   return (
-    <Card className="space-y-3">
+    <Card className="space-y-4">
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="space-y-1">
           <CardTitle>{market.question}</CardTitle>
           <CardDescription>
             YES {formatAmountMinor(market.poolYesMinor)} · NO{" "}
             {formatAmountMinor(market.poolNoMinor)}
           </CardDescription>
         </div>
-        <span
-          className={`rounded-full border px-2 py-1 text-xs ${
-            market.status === "OPEN" ? "border-accent text-accent" : "border-muted-foreground text-muted-foreground"
-          }`}
-        >
-          {market.status}
+        <span className="rounded-pill border border-white/25 px-2 py-1 text-xs font-mono uppercase tracking-mono-sm text-ink">
+          OPEN
         </span>
       </div>
-      <Link href={`/markets/${market.id}`}>
+      <Link href={`/markets/${market.id}`} className="block">
         <Button className="w-full">Open market</Button>
       </Link>
     </Card>
