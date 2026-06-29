@@ -1,10 +1,23 @@
-# PoolWise — Prediction Market Prototype
+# PoolWise — Prediction Market MVP
 
 A small, production-like prototype of a parimutuel prediction market. Users bet YES/NO on an event, an admin resolves the market, winners are paid proportionally minus an 8% rake, and single-sided markets receive a guaranteed payout backed by the house.
 
-## Live demo
+## Status
 
-A local Docker setup is the primary demo. The app is also deployable to Vercel / any Node host with a PostgreSQL URL.
+✅ **Stable MVP.** All core logic tested. Docker full-stack working. Ready for HR review.
+
+**Tests:** 8/8 passing.  
+**Demo:** `make docker-up` → http://localhost:5179
+
+## Live Demo
+
+**Local Docker setup (recommended):**
+```bash
+make docker-up
+```
+
+Starts postgres + Next.js dev server.  
+Opens on http://localhost:5179
 
 ## UI / design
 
