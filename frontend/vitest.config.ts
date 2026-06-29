@@ -7,7 +7,10 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: true,
-    fileParallelism: false
+    fileParallelism: false,
+    env: {
+      DATABASE_URL: "postgresql://poolwise:poolwise@localhost:5432/poolwise?schema=public"
+    }
   },
   resolve: {
     alias: {
