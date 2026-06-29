@@ -17,7 +17,7 @@ NC     := \033[0m
 
 export PATH := $(CURDIR)/$(FRONTEND_DIR)/node_modules/.bin:$(PATH)
 
-.PHONY: install setup dev build start test lint format db-create db-create-user db-generate db-migrate db-migrate-dev db-reset seed docker-up docker-down docker-logs clean-ports
+.PHONY: install setup dev build start test lint format db-create db-create-user db-generate db-migrate db-migrate-dev db-reset seed docker-up docker-down docker-logs clean-ports db-start db-wait
 
 install:
 	cd $(FRONTEND_DIR) && yarn install
@@ -26,33 +26,22 @@ s:
 	@cd frontend && ([ -f .env ] || cp .env.example .env)
 	@echo "$(GREEN)✅ .env files created (if they were missing)$(NC)"
 
-setup: s install db-create db-migrate seed
-	@echo "$(GREEN)✅ PoolWise is ready. Run 'make dev' to start.$(NC)"
+db-start:
+	@echo "$(YELLOW)🐘 Starting PostgreSQL via Docker...$(NC)"
+	docker compose up -d postgres
+	@echo "$(GREEN)✅ PostgreSQL started$(NC)"
 
-dev: clean-ports
-	cd $(FRONTEND_DIR) && nohup yarn run dev > /tmp/poolwise-dev.log 2>&1 &
-	@echo "$(BLUE)🚀 PoolWise dev server starting at http://localhost:$(FRONTEND_PORT)$(NC)"
-
-build:
-	cd $(FRONTEND_DIR) && yarn run build
-
-start:
-	cd $(FRONTEND_DIR) && yarn run start
-
-test:
-	cd $(FRONTEND_DIR) && yarn run test
-
-lint:
-	cd $(FRONTEND_DIR) && yarn run lint
-
-format:
-	cd $(FRONTEND_DIR) && yarn run format
+db-wait:
+	@echo "$(YELLOW)⏳ Waiting for PostgreSQL to be ready...$(NC)"
+	@until pg_isready -h localhost -p $(DB_PORT) -U $(DB_USER) > /dev/null 2>&1; do \
+	    sleep 1; \
+	done
+	@echo "$(GREEN)✅ PostgreSQL is ready$(NC)"
 
 db-create-user:
-	@echo "$(YELLOW)👤 Creating database user $(DB_USER) (if not exists)...$(NC)"
-	-@psql "postgresql://postgres:postgres@localhost:$(DB_PORT)/postgres" -c "CREATE USER $(DB_USER) WITH PASSWORD '$(DB_PASSWORD)' SUPERUSER;" 2>/dev/null || true
+	@echo "$(YELLOW)👤 Database user already created via docker-compose$(NC)"
 
-db-create: db-create-user
+db-create: db-create-user db-wait
 	@echo "$(YELLOW)🗄️  Creating database $(DB_NAME) if it does not exist...$(NC)"
 	-@psql "postgresql://$(DB_USER):$(DB_PASSWORD)@localhost:$(DB_PORT)/postgres" -tc "SELECT 1 FROM pg_database WHERE datname='$(DB_NAME)'" | grep -q 1 || psql "postgresql://$(DB_USER):$(DB_PASSWORD)@localhost:$(DB_PORT)/postgres" -c "CREATE DATABASE $(DB_NAME);"
 	@echo "$(GREEN)✅ Database $(DB_NAME) is ready.$(NC)"
@@ -86,5 +75,26 @@ clean-ports:
 	-@lsof -ti :$(FRONTEND_PORT) | xargs kill -9 2>/dev/null || true
 	@echo "$(GREEN)✅ Порты свободны$(NC)"
 
+dev: clean-ports
+	cd $(FRONTEND_DIR) && nohup yarn run dev > /tmp/poolwise-dev.log 2>&1 &
+	@echo "$(BLUE)🚀 PoolWise dev server starting at http://localhost:$(FRONTEND_PORT)$(NC)"
 
-i: build lint test dev
+build:
+	cd $(FRONTEND_DIR) && yarn run build
+
+start:
+	cd $(FRONTEND_DIR) && yarn run start
+
+test:
+	cd $(FRONTEND_DIR) && yarn run test
+
+lint:
+	cd $(FRONTEND_DIR) && yarn run lint
+
+format:
+	cd $(FRONTEND_DIR) && yarn run format
+
+setup: s install db-start db-create db-migrate seed
+	@echo "$(GREEN)✅ PoolWise is ready. Run 'make dev' to start.$(NC)"
+
+i: setup build lint test dev

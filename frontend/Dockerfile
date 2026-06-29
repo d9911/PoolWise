@@ -2,13 +2,14 @@ FROM node:22-alpine AS base
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install
+COPY package.json yarn.lock ./
+COPY prisma ./prisma
+RUN yarn install --frozen-lockfile
 
 COPY . .
 
-RUN npx prisma generate
+RUN yarn prisma generate
 
 EXPOSE 5179
 
-CMD ["npm", "run", "dev", "--", "-p", "5179"]
+CMD ["yarn", "dev", "-p", "5179"]
