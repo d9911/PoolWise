@@ -98,3 +98,11 @@ setup: s install db-start db-create db-migrate seed
 	@echo "$(GREEN)✅ PoolWise is ready. Run 'make dev' to start.$(NC)"
 
 i: setup build lint test dev
+
+db-start:
+	@echo "$(YELLOW)🐘 Starting PostgreSQL via Docker Compose...$(NC)"
+	docker compose up -d postgres
+	@echo "$(YELLOW)⏳ Waiting for PostgreSQL to be ready...$(NC)"
+	@until psql "postgresql://postgres:postgres@localhost:$(DB_PORT)/postgres" -c "SELECT 1;" >/dev/null 2>&1; do \
+		sleep 1; \
+	done
